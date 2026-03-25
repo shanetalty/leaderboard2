@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leaderboard</title>
+<style>
+  @font-face {
+    font-family: 'noigrotesk';
+    src: url('NoiGrotesk-Semibold.eot');
+    src: url('NoiGrotesk-Semibold.eot') format('embedded-opentype'),
+         url('NoiGrotesk-Semibold.woff2') format('woff2'),
+         url('NoiGrotesk-Semibold.woff') format('woff'),
+         url('NoiGrotesk-Semibold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+  }
+
+  @font-face {
+    font-family: 'noigrotesk';
+    src: url('NoiGrotesk-Regular.eot');
+    src: url('NoiGrotesk-Regular.eot') format('embedded-opentype'),
+         url('NoiGrotesk-Regular.woff2') format('woff2'),
+         url('NoiGrotesk-Regular.woff') format('woff'),
+         url('NoiGrotesk-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+  }
+
+  /* ─── CUSTOMISE HERE ─────────────────────────────────────────────────────── */
+  :root {
+    --bg-image: url('cartrawlerbg.png'); /* replace with your image filename   */
+    --font-display: 'noigrotesk', sans-serif;
+    --font-body:    'noigrotesk', sans-serif;
+    --accent:       #FFD700;           /* gold accent — change to your brand    */
+    --card-bg:      rgba(0, 0, 0, 0.55);
+    --card-border:  rgba(255, 255, 255, 0.12);
+    --text-primary: #ffffff;
+    --text-muted:   rgba(255,255,255,0.6);
+    --row-hover:    rgba(255,255,255,0.06);
+    --top1: #FFD700;
+    --top2: #C0C0C0;
+    --top3: #CD7F32;
+  }
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg-image) center center / cover no-repeat fixed #0a0a1a;
+    min-height: 100vh;
+    color: var(--text-primary);
+    overflow-x: hidden;
+  }
+
+  /* scrim so background never fights the text */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ── INPUT SCREEN ── */
+  #input-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    flex: 1; padding: 2rem;
+    gap: 1.5rem;
+  }
+
+  #input-screen h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: #ffffff;
+    text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+  }
+
+  #input-screen p {
+    color: var(--text-muted); font-size: 1rem;
+  }
+
+  textarea {
+    width: min(680px, 100%);
+    height: 260px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    color: #fff;
+    font-family: monospace; font-size: 13px;
+    padding: 14px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+
+  .btn {
+    font-family: var(--font-display);
+    font-size: 1.1rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--accent); color: #111;
+    border: none; border-radius: 8px;
+    padding: 14px 40px; cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s;
+  }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn:active { transform: scale(0.97); }
+
+  /* ── LEADERBOARD SCREEN ── */
+  #board-screen {
+    display: none;
+    flex-direction: column;
+    min-height: 100vh;
+    padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3rem);
+    gap: 1.5rem;
+  }
+
+  .board-header {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 1rem;
+  }
+
+  .board-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3.8rem);
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: #ffffff;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.6);
+  }
+
+  .back-btn { display: none; }
+
+  /* ── TABLE ── */
+  .board-wrap {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  #entries-scroll {
+    overflow-y: auto;
+    max-height: calc(100vh - 160px);
+    scroll-behavior: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  #entries-scroll::-webkit-scrollbar { display: none; }
+  #entries-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+
+  #entries {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+  }
+
+  .board-col-headers {
+    display: grid;
+    grid-template-columns: 70px 1fr 120px 120px;
+    padding: 12px 28px;
+    border-bottom: 1px solid var(--card-border);
+    font-family: var(--font-display);
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .entry {
+    display: grid;
+    grid-template-columns: 70px 1fr 120px 120px;
+    align-items: center;
+    padding: 0 28px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+    opacity: 0;
+    transform: translateX(-32px);
+    transition: background 0.2s;
+    flex: 1;
+    min-height: 44px;
+  }
+  .entry:last-child { border-bottom: none; }
+  .entry:hover { background: var(--row-hover); }
+  .entry.visible {
+    opacity: 1; transform: translateX(0);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .entry-pos {
+    font-family: var(--font-display);
+    font-size: clamp(1.1rem, 2vw, 1.5rem); font-weight: 700;
+    text-align: center;
+  }
+  .entry-pos.gold   { color: var(--top1); }
+  .entry-pos.silver { color: var(--top2); }
+  .entry-pos.bronze { color: var(--top3); }
+  .entry-pos.rest   { color: var(--text-muted); }
+
+  .entry-name {
+    font-family: var(--font-display);
+    font-weight: 600; letter-spacing: 0.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    padding-right: 12px;
+  }
+  .entry:nth-child(1) .entry-name { color: var(--top1); }
+  .entry:nth-child(2) .entry-name { color: var(--top2); }
+  .entry:nth-child(3) .entry-name { color: var(--top3); }
+
+  .entry-score, .entry-time {
+    font-family: var(--font-display);
+    font-size: clamp(1.1rem, 2vw, 1.5rem); font-weight: 600;
+    text-align: right; color: var(--text-muted);
+  }
+  .entry:nth-child(-n+3) .entry-score,
+  .entry:nth-child(-n+3) .entry-time { color: rgba(255,255,255,0.85); }
+
+  /* top-3 row highlight */
+  .entry:nth-child(1) { background: rgba(255,215,0,0.07); }
+  .entry:nth-child(2) { background: rgba(192,192,192,0.05); }
+  .entry:nth-child(3) { background: rgba(205,127,50,0.06); }
+
+  /* medal icons */
+  .medal { font-size: 1.3rem; display: block; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── INPUT SCREEN ── -->
+  <div id="input-screen">
+    <h1>Leaderboard</h1>
+    <p>Paste your Slido leaderboard text below, then click Show Leaderboard</p>
+    <textarea id="raw" placeholder="Paste Slido results here…"></textarea>
+    <button class="btn" onclick="showBoard()">Show Leaderboard</button>
+  </div>
+
+  <!-- ── BOARD SCREEN ── -->
+  <div id="board-screen">
+    <div class="board-header">
+      <div class="board-title">Leaderboard</div>
+      <button class="back-btn" onclick="goBack()">← Paste new results</button>
+    </div>
+    <div class="board-wrap">
+      <div class="board-col-headers">
+        <span style="text-align:center">#</span>
+        <span>Name</span>
+        <span style="text-align:right">Score</span>
+        <span style="text-align:right">Time</span>
+      </div>
+      <div id="entries-scroll"><div id="entries"></div></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  function cleanName(raw) {
+    raw = raw.replace(/^Participant \d+:\s*/i, '').trim();
+    for (let len = Math.floor(raw.length / 2); len >= 3; len--) {
+      if (raw.substring(len).startsWith(raw.substring(0, len))) {
+        return raw.substring(0, len).trim();
+      }
+    }
+    return raw.trim();
+  }
+
+  function extractEntries(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+    const entries = [];
+    let i = 0;
+    while (i < lines.length) {
+      const score = lines[i + 1] || '';
+      const time  = lines[i + 2] || '';
+      if (/^\d+\/\d+$/.test(score) && /^\d+:\d{2}$/.test(time)) {
+        entries.push({ name: cleanName(lines[i]), score, time });
+        i += 3;
+      } else {
+        i++;
+      }
+    }
+    return entries;
+  }
+
+  function showBoard() {
+    const entries = extractEntries(document.getElementById('raw').value);
+    if (!entries.length) { alert('No entries found — check the pasted text.'); return; }
+
+    const posClass = ['gold','silver','bronze'];
+
+    const container = document.getElementById('entries');
+    container.innerHTML = '';
+    entries.forEach((e, idx) => {
+      const pos = idx + 1;
+      const div = document.createElement('div');
+      div.className = 'entry';
+      div.innerHTML = `
+        <span class="entry-pos ${posClass[idx] || 'rest'}">${pos}</span>
+        <span class="entry-name">${e.name}</span>
+        <span class="entry-score">${e.score}</span>
+        <span class="entry-time">${e.time}</span>
+      `;
+      container.appendChild(div);
+    });
+
+    document.getElementById('input-screen').style.display = 'none';
+    const board = document.getElementById('board-screen');
+    board.style.display = 'flex';
+
+    // staggered slide-in
+    const rows = container.querySelectorAll('.entry');
+    rows.forEach((row, i) => {
+      setTimeout(() => row.classList.add('visible'), 80 + i * 60);
+    });
+  }
+
+  function goBack() {
+    document.getElementById('board-screen').style.display = 'none';
+    document.getElementById('input-screen').style.display = 'flex';
+  }
+
+  // ── AUTO-SCROLL ──────────────────────────────────────────────────────────
+  let scrolling = false;
+  let scrollRAF = null;
+  let scrollTimeout = null;
+
+  function stopScroll() {
+    scrolling = false;
+    if (scrollRAF) { cancelAnimationFrame(scrollRAF); scrollRAF = null; }
+    if (scrollTimeout) { clearTimeout(scrollTimeout); scrollTimeout = null; }
+  }
+
+  function scrollInDirection(direction, speed, onDone) {
+    const el = document.getElementById('entries-scroll');
+    function step() {
+      if (!scrolling) return;
+      el.scrollTop += speed * direction;
+      const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 1;
+      const atTop = el.scrollTop <= 0;
+      if ((direction === 1 && atBottom) || (direction === -1 && atTop)) {
+        onDone();
+      } else {
+        scrollRAF = requestAnimationFrame(step);
+      }
+    }
+    scrollRAF = requestAnimationFrame(step);
+  }
+
+  function startScroll() {
+    const el = document.getElementById('entries-scroll');
+    if (!el) return;
+    el.scrollTop = 0;
+    // 1. Scroll down
+    scrollInDirection(1, 0.9, function() {
+      // 2. Hold 7 seconds
+      scrollTimeout = setTimeout(function() {
+        if (!scrolling) return;
+        // 3. Scroll back up
+        scrollInDirection(-1, 1.3, function() {
+          // 4. Done — stop
+          stopScroll();
+        });
+      }, 7000);
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    const onBoard = document.getElementById('board-screen').style.display === 'flex';
+    if (!onBoard) return;
+    if (e.key === '0') goBack();
+    if (e.key === 's' || e.key === 'S') {
+      if (scrolling) {
+        stopScroll();
+      } else {
+        scrolling = true;
+        startScroll();
+      }
+    }
+  });
+</script>
+</body>
+</html>
